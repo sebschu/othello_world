@@ -22,6 +22,9 @@ class GPTConfig:
     resid_pdrop = 0.1
     attn_pdrop = 0.1
 
+    #
+    causal_mask_limit = -1
+
     def __init__(self, vocab_size, block_size, **kwargs):
         self.vocab_size = vocab_size
         self.block_size = block_size
@@ -48,7 +51,13 @@ class CausalSelfAttention(nn.Module):
         # output projection
         self.proj = nn.Linear(config.n_embd, config.n_embd)
         # causal mask to ensure that attention is only applied to the left in the input sequence
-        self.register_buffer("mask", torch.tril(torch.ones(config.block_size, config.block_size))
+        if config.causal_mask_limit != -1:
+            self.register_buffer("mask", 
+                                 torch.tril(torch.ones(config.block_size, config.block_size)) *
+                                 torch.triu(torch.ones(config.block_size,config.block_size), diagonal=-config.causal_mask_limit)
+                                     .view(1, 1, config.block_size, config.block_size))
+        else:
+            self.register_buffer("mask", torch.tril(torch.ones(config.block_size, config.block_size))
                                      .view(1, 1, config.block_size, config.block_size))
         self.n_head = config.n_head
 
