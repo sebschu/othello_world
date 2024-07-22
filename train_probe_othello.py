@@ -34,6 +34,10 @@ parser.add_argument('--layer',
                     default=-1,
                     type=int)
 
+parser.add_argument("--checkpoint_path", 
+                    type=str,
+                    required=True)
+
 parser.add_argument('--epo',
                     default=16,
                     type=int)
@@ -58,6 +62,14 @@ parser.add_argument('--exp',
                     default="state", 
                     type=str)
 
+parser.add_argument("--causal_mask_limit", 
+                    default=-1, 
+                    type=int)
+
+parser.add_argument("--exp_name", 
+                    type=str, 
+                    default=None)
+
 args, _ = parser.parse_known_args()
 
 folder_name = f"battery_othello/{args.exp}"
@@ -68,20 +80,23 @@ if args.random:
     folder_name = folder_name + "_random"
 if args.championship:
     folder_name = folder_name + "_championship"
+if args.exp_name:
+    folder_name = folder_name + f"_{args.exp_name}"
 
 print(f"Running experiment for {folder_name}")
 othello = get_othello(data_root="data/othello_championship")
 
 train_dataset = CharDataset(othello)
 
-mconf = GPTConfig(train_dataset.vocab_size, train_dataset.block_size, n_layer=8, n_head=8, n_embd=512)
+mconf = GPTConfig(train_dataset.vocab_size, 
+                  train_dataset.block_size, 
+                  n_layer=8, n_head=8, n_embd=512, 
+                  causal_mask_limit=args.causal_mask_limit)
 model = GPTforProbing(mconf, probe_layer=args.layer)
 if args.random:
     model.apply(model._init_weights)
-elif args.championship:
-    load_res = model.load_state_dict(torch.load("./ckpts/gpt_championship.ckpt"))
 else:  # trained on synthetic dataset
-    load_res = model.load_state_dict(torch.load("./ckpts/gpt_synthetic.ckpt"))
+    load_res = model.load_state_dict(torch.load(args.checkpoint_path))
 if torch.cuda.is_available():
     device = torch.cuda.current_device()
     model = model.to(device)
